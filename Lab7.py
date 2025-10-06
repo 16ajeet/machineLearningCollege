@@ -100,7 +100,8 @@ for k in k_range:
         plt.ylabel('Frequency', fontsize=12)
         plt.grid(True, linestyle='--', alpha=0.6)
         plt.tight_layout()
-        plt.savefig(f'silhouette_k{k}_plusplus.png', dpi=300, bbox_inches='tight')
+        # plt.savefig(f'silhouette_k{k}_plusplus.png', dpi=300, bbox_inches='tight')
+        plt.show()
         plt.close()
 
 plt.figure(figsize=(7, 5))
@@ -110,7 +111,8 @@ plt.xlabel('Number of Clusters (k)', fontsize=12)
 plt.ylabel('Average Silhouette Score', fontsize=12)
 plt.grid(True, linestyle='--', alpha=0.6)
 plt.tight_layout()
-plt.savefig('silhouette_vs_k.png', dpi=300, bbox_inches='tight')
+# plt.savefig('silhouette_vs_k.png', dpi=300, bbox_inches='tight')
+plt.show()
 plt.close()
 
 best_k = k_range[np.argmax(silhouette_avgs)]
@@ -130,7 +132,8 @@ plt.xlabel('Number of Clusters (k)', fontsize=12)
 plt.ylabel('WCSS (Inertia)', fontsize=12)
 plt.grid(True, linestyle='--', alpha=0.6)
 plt.tight_layout()
-plt.savefig('elbow_curve.png', dpi=300, bbox_inches='tight')
+# plt.savefig('elbow_curve.png', dpi=300, bbox_inches='tight')
+plt.show()
 plt.close()
 
 # --- Question 3: Initialization Comparison (k=5) ---
@@ -166,5 +169,6 @@ plt.xlabel('Annual Income (k$)')
 plt.ylabel('Spending Score (1-100)')
 
 plt.tight_layout()
-plt.savefig('cluster_comparison.png', dpi=300, bbox_inches='tight')
+# plt.savefig('cluster_comparison.png', dpi=300, bbox_inches='tight')
+plt.show()
 plt.close()
