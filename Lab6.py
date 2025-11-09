@@ -6,98 +6,146 @@
 # Apply k-means clustering for k values from 1 to 12.
 # For each k, calculate the within-cluster sum of squares (WCSS) and plot the elbow curve.
 
-#contains error
+# ------------------- LAB 6 -------------------
+# Question 1: K-Means with Silhouette Scores
+# Question 2: Elbow Method
+# --------------------------------------------
+
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import os
 
-# --- Helper functions ---
+# Ensure the script runs from same folder
+os.chdir(os.path.dirname(__file__))
 
-def kmeans(X, k, max_iter=100):
-    # Randomly initialize centroids
-    np.random.seed(42)
-    print(f"this is row : {X.shape[0]}")
-    centroids = X[np.random.choice(X.shape[0], k, replace=False)]
+# Load dataset
+data = pd.read_csv("Seed_Data.csv")
+
+# Drop label column if exists
+if 'Type' in data.columns or 'type' in data.columns:
+    X = data.drop(['Type'], axis=1).values
+else:
+    X = data.values
+
+# Standardize features manually
+X = (X - X.mean(axis=0)) / X.std(axis=0)
+
+# ---------------- K-MEANS IMPLEMENTATION ----------------
+
+def initialize_centroids(X, k):
+    idx = np.random.choice(len(X), k, replace=False)
+    return X[idx]
+
+def assign_clusters(X, centroids):
+    distances = np.sqrt(((X[:, None, :] - centroids[None, :, :])**2).sum(axis=2))
+    return np.argmin(distances, axis=1)
+
+def update_centroids(X, labels, k):
+    centroids = np.zeros((k, X.shape[1]))
+    for i in range(k):
+        if np.any(labels == i):
+            centroids[i] = X[labels == i].mean(axis=0)
+    return centroids
+
+def kmeans(X, k=3, max_iter=100):
+    centroids = initialize_centroids(X, k)
     for _ in range(max_iter):
-        # Assign clusters
-        #Calculates Euclidean distance from each point to each centroid.
-        distances = np.linalg.norm(X[:, None] - centroids, axis=2)
-        #Assigns each point to the nearest centroid.
-        labels = np.argmin(distances, axis=1)
-        # Update centroids as mean of points in eacch cluster and if condition stops if centroid stops updating
-        new_centroids = np.array([X[labels == i].mean(axis=0) if np.any(labels == i) else centroids[i] for i in range(k)])
+        labels = assign_clusters(X, centroids)
+        new_centroids = update_centroids(X, labels, k)
         if np.allclose(centroids, new_centroids):
             break
         centroids = new_centroids
-    return labels, centroids
+    # Compute WCSS
+    wcss = np.sum((X - centroids[labels])**2)
+    return labels, centroids, wcss
 
+# ---------------- SILHOUETTE SCORE ----------------
 def silhouette_score_manual(X, labels):
-    #total number of datapoints -> row
-    n = X.shape[0]
-    #total number of clusters -> label
-    k = len(np.unique(labels))
-    #initializes an empty array of size n and value 0 in which we will store data
-    sil_samples = np.zeros(n)
+    n = len(X)
+    unique_labels = np.unique(labels)
+    sil_scores = np.zeros(n)
+
     for i in range(n):
-        same_cluster = labels == labels[i]
-        other_clusters = labels != labels[i]
-        #calculating intracluster distance
-        a = np.mean(np.linalg.norm(X[i] - X[same_cluster], axis=1)) if np.sum(same_cluster) > 1 else 0
-        #calculating distance from other cluster and taking mean -> distance from closest neighbour
-        b = np.min([
-            np.mean(np.linalg.norm(X[i] - X[labels == j], axis=1))
-            for j in np.unique(labels) if j != labels[i]
-        ]) if k > 1 else 0
-        sil_samples[i] = (b - a) / max(a, b) if max(a, b) > 0 else 0
-    return sil_samples.mean(), sil_samples
+        same_cluster = X[labels == labels[i]]
+        a = np.mean(np.sqrt(np.sum((same_cluster - X[i])**2, axis=1))) if len(same_cluster) > 1 else 0
+        b = np.inf
+        for lbl in unique_labels:
+            if lbl == labels[i]:
+                continue
+            other_cluster = X[labels == lbl]
+            dist = np.mean(np.sqrt(np.sum((other_cluster - X[i])**2, axis=1)))
+            if dist < b:
+                b = dist
+        sil_scores[i] = (b - a) / max(a, b)
+    return np.mean(sil_scores), sil_scores
 
-#for each cluster, sum squared distances of points to their centroid
-# jitna cluster utna kam wcss -> after elbow point ye useless hoga 
-def wcss_manual(X, labels, centroids):
-    return sum(np.sum((X[labels == i] - centroids[i])**2) for i in range(len(centroids)))
+# ==========================================================
+#              QUESTION 1 — SILHOUETTE ANALYSIS
+# ==========================================================
 
-# --- Load data ---
-df = pd.read_csv('Seed_Data.csv')
-X = df.drop(['target'], axis=1).values
+print("\n===== Question 1: Silhouette Analysis =====")
 
-# --- Question 1: Silhouette scores ---
+K_values = range(2, 13)
 silhouette_avgs = []
-k_range = range(2, 13)
-for k in k_range:
-    labels, centroids = kmeans(X, k)
-    sil_avg, sil_samples = silhouette_score_manual(X, labels)
-    silhouette_avgs.append(sil_avg)
-    if k in [2, 4, 8]:
-        plt.figure(figsize=(7, 5))
-        plt.title(f'Silhouette Distribution for k={k}', fontsize=14)
-        plt.hist(sil_samples, bins=30, color='skyblue', edgecolor='black')
-        plt.xlabel('Silhouette Coefficient', fontsize=12)
-        plt.ylabel('Frequency', fontsize=12)
-        plt.grid(True, linestyle='--', alpha=0.6)
-        plt.tight_layout()
-        plt.savefig(f'silhouette_k{k}.png', dpi=300, bbox_inches='tight')
-        plt.close()
 
-print("Average silhouette scores for k=2 to 12:")
-for k, score in zip(k_range, silhouette_avgs):
-    print(f"k={k}: {score:.4f}")
+for k in K_values:
+    labels, centroids, _ = kmeans(X, k)
+    avg_sil, _ = silhouette_score_manual(X, labels)
+    silhouette_avgs.append(avg_sil)
+    print(f"K={k}, Average Silhouette Score={avg_sil:.4f}")
 
-# --- Question 2: Elbow curve ---
-wcss = []
-k_range_elbow = range(1, 13)
-for k in k_range_elbow:
-    labels, centroids = kmeans(X, k)
-    wcss.append(wcss_manual(X, labels, centroids))
-
-plt.figure(figsize=(7, 5))
-plt.plot(list(k_range_elbow), wcss, marker='o', linewidth=2)
-plt.title('Elbow Curve for K-Means', fontsize=14)
-plt.xlabel('Number of Clusters (k)', fontsize=12)
-plt.ylabel('WCSS (Inertia)', fontsize=12)
-plt.grid(True, linestyle='--', alpha=0.6)
+# Plot average silhouette score vs K
+plt.figure(figsize=(7,4))
+plt.plot(K_values, silhouette_avgs, marker='o')
+plt.title("Average Silhouette Score vs Number of Clusters")
+plt.xlabel("Number of Clusters (k)")
+plt.ylabel("Average Silhouette Score")
+plt.grid(True)
 plt.tight_layout()
-plt.savefig('elbow_curve.png', dpi=300, bbox_inches='tight')
-plt.close()
+plt.show()
 
+# Plot silhouette distribution for k = 2, 4, 8
+for k in [2, 4, 8]:
+    labels, centroids, _ = kmeans(X, k)
+    _, sil_samples = silhouette_score_manual(X, labels)
+    y_lower = 0
+    plt.figure(figsize=(6,4))
+    for i in range(k):
+        cluster_silhouette_vals = sil_samples[labels == i]
+        cluster_silhouette_vals.sort()
+        y_upper = y_lower + len(cluster_silhouette_vals)
+        plt.fill_betweenx(np.arange(y_lower, y_upper), 0, cluster_silhouette_vals)
+        y_lower = y_upper
+    plt.axvline(x=np.mean(sil_samples), color='red', linestyle='--')
+    plt.title(f"Silhouette Plot for k={k}")
+    plt.xlabel("Silhouette Coefficient Values")
+    plt.ylabel("Cluster")
+    plt.tight_layout()
+    plt.show()
 
+# ==========================================================
+#              QUESTION 2 — ELBOW METHOD
+# ==========================================================
 
+print("\n===== Question 2: Elbow Method =====")
+
+wcss_values = []
+K_values = range(1, 13)
+
+for k in K_values:
+    labels, centroids, wcss = kmeans(X, k)
+    wcss_values.append(wcss)
+    print(f"K={k}, WCSS={wcss:.2f}")
+
+# Plot elbow curve
+plt.figure(figsize=(7,4))
+plt.plot(K_values, wcss_values, marker='o')
+plt.title("Elbow Method: WCSS vs Number of Clusters")
+plt.xlabel("Number of Clusters (k)")
+plt.ylabel("WCSS (Within-Cluster Sum of Squares)")
+plt.grid(True)
+plt.tight_layout()
+plt.show()
+
+print("\nAll clustering and visualization completed successfully!")
