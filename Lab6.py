@@ -6,6 +6,7 @@
 # Apply k-means clustering for k values from 1 to 12.
 # For each k, calculate the within-cluster sum of squares (WCSS) and plot the elbow curve.
 
+#contains error
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
